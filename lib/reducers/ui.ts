@@ -1,6 +1,18 @@
-import Immutable, {Immutable as ImmutableType} from 'seamless-immutable';
-import {decorateUIReducer} from '../utils/plugins';
-import {CONFIG_LOAD, CONFIG_RELOAD} from '../constants/config';
+import {release} from 'os';
+
+import Immutable from 'seamless-immutable';
+import type {Immutable as ImmutableType} from 'seamless-immutable';
+
+import {CONFIG_LOAD, CONFIG_RELOAD} from '../../typings/constants/config';
+import {NOTIFICATION_MESSAGE, NOTIFICATION_DISMISS} from '../../typings/constants/notifications';
+import {
+  SESSION_ADD,
+  SESSION_RESIZE,
+  SESSION_PTY_DATA,
+  SESSION_PTY_EXIT,
+  SESSION_SET_ACTIVE,
+  SESSION_SET_CWD
+} from '../../typings/constants/sessions';
 import {
   UI_FONT_SIZE_SET,
   UI_FONT_SIZE_RESET,
@@ -10,23 +22,17 @@ import {
   UI_WINDOW_GEOMETRY_CHANGED,
   UI_ENTER_FULLSCREEN,
   UI_LEAVE_FULLSCREEN
-} from '../constants/ui';
-import {NOTIFICATION_MESSAGE, NOTIFICATION_DISMISS} from '../constants/notifications';
-import {
-  SESSION_ADD,
-  SESSION_RESIZE,
-  SESSION_PTY_DATA,
-  SESSION_PTY_EXIT,
-  SESSION_SET_ACTIVE,
-  SESSION_SET_CWD
-} from '../constants/sessions';
-import {UPDATE_AVAILABLE} from '../constants/updater';
-import {uiState, Mutable, IUiReducer} from '../hyper';
+} from '../../typings/constants/ui';
+import {UPDATE_AVAILABLE} from '../../typings/constants/updater';
+import type {uiState, Mutable, IUiReducer} from '../../typings/hyper';
+import {decorateUIReducer} from '../utils/plugins';
+
+const isWindows = ['Windows', 'Win16', 'Win32', 'WinCE'].includes(navigator.platform) || process.platform === 'win32';
 
 const allowedCursorShapes = new Set(['BEAM', 'BLOCK', 'UNDERLINE']);
 const allowedCursorBlinkValues = new Set([true, false]);
 const allowedBells = new Set(['SOUND', 'false', false]);
-const allowedHamburgerMenuValues = new Set([true, false]);
+const allowedHamburgerMenuValues = new Set([true, false, ''] as const);
 const allowedWindowControlsValues = new Set([true, false, 'left']);
 
 // Populate `config-default.js` from this :)
@@ -50,6 +56,7 @@ const initial: uiState = Immutable<Mutable<uiState>>({
   fontSmoothingOverride: 'antialiased',
   fontWeight: 'normal',
   fontWeightBold: 'bold',
+  imageSupport: true,
   lineHeight: 1,
   letterSpacing: 0,
   css: '',
@@ -108,7 +115,9 @@ const initial: uiState = Immutable<Mutable<uiState>>({
   webLinksActivationKey: '',
   macOptionSelectionMode: 'vertical',
   disableLigatures: true,
-  screenReaderMode: false
+  screenReaderMode: false,
+  defaultProfile: '',
+  profiles: []
 });
 
 const reducer: IUiReducer = (state = initial, action) => {
@@ -210,7 +219,7 @@ const reducer: IUiReducer = (state = initial, action) => {
             }
 
             if (allowedBells.has(config.bell)) {
-              ret.bell = config.bell;
+              ret.bell = (config.bell as any) === 'false' ? false : config.bell;
             }
 
             if (config.bellSoundURL !== state.bellSoundURL) {
@@ -235,7 +244,7 @@ const reducer: IUiReducer = (state = initial, action) => {
               ret.modifierKeys = config.modifierKeys;
             }
 
-            if (allowedHamburgerMenuValues.has(config.showHamburgerMenu as any)) {
+            if (allowedHamburgerMenuValues.has(config.showHamburgerMenu)) {
               ret.showHamburgerMenu = config.showHamburgerMenu;
             }
 
@@ -267,6 +276,27 @@ const reducer: IUiReducer = (state = initial, action) => {
 
             if (config.screenReaderMode !== undefined) {
               ret.screenReaderMode = config.screenReaderMode;
+            }
+
+            const buildNumber = parseInt(release().split('.').at(-1) || '0', 10);
+            if (isWindows && !Number.isNaN(buildNumber) && buildNumber > 0) {
+              const useConpty = typeof config.useConpty === 'boolean' ? config.useConpty : buildNumber >= 18309;
+              ret.windowsPty = {
+                backend: useConpty ? 'conpty' : 'winpty',
+                buildNumber
+              };
+            }
+
+            if (config.imageSupport !== undefined) {
+              ret.imageSupport = config.imageSupport;
+            }
+
+            if (config.defaultProfile !== undefined) {
+              ret.defaultProfile = config.defaultProfile;
+            }
+
+            if (config.profiles !== undefined) {
+              ret.profiles = config.profiles;
             }
 
             ret._lastUpdate = now;
@@ -431,13 +461,7 @@ const reducer: IUiReducer = (state = initial, action) => {
     }
   }
 
-  if (
-    typeof state.cols !== 'undefined' &&
-    state.cols !== null &&
-    typeof state.rows !== 'undefined' &&
-    state.rows !== null &&
-    (state.rows !== state_.rows || state.cols !== state_.cols)
-  ) {
+  if (state.cols !== null && state.rows !== null && (state.rows !== state_.rows || state.cols !== state_.cols)) {
     state_ = state_.merge({notifications: {resize: true}}, {deep: true});
   }
 

@@ -1,6 +1,6 @@
+import {INIT} from '../../typings/constants';
+import type {HyperDispatch} from '../../typings/hyper';
 import rpc from '../rpc';
-import {INIT} from '../constants';
-import {HyperDispatch} from '../hyper';
 
 export default function init() {
   return (dispatch: HyperDispatch) => {

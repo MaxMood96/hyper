@@ -1,16 +1,20 @@
 // This is a CLI tool, using console is OK
 /* eslint no-console: 0 */
-import {spawn, exec, SpawnOptions} from 'child_process';
-import {isAbsolute, resolve} from 'path';
+import {spawn, exec} from 'child_process';
+import type {SpawnOptions} from 'child_process';
 import {existsSync} from 'fs';
-import {version} from '../app/package.json';
-import pify from 'pify';
+import {isAbsolute, resolve} from 'path';
+import {promisify} from 'util';
+
 import args from 'args';
 import chalk from 'chalk';
-import open from 'open';
 import _columnify from 'columnify';
 import got from 'got';
+import open from 'open';
 import ora from 'ora';
+
+import {version} from '../app/package.json';
+
 import * as api from './api';
 
 let commandPromise: Promise<void> | undefined;
@@ -191,8 +195,10 @@ const main = (argv: string[]) => {
     version: false,
     mri: {
       boolean: ['v', 'verbose']
-    }
-  } as any);
+    },
+    mainColor: 'yellow',
+    subColor: 'dim'
+  });
 
   if (commandPromise) {
     return commandPromise;
@@ -232,7 +238,7 @@ const main = (argv: string[]) => {
       const opts = {
         env
       };
-      return pify(exec)(cmd, opts);
+      return promisify(exec)(cmd, opts);
     }
   }
 

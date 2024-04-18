@@ -1,28 +1,32 @@
-import rpc from '../rpc';
+import {SESSION_REQUEST} from '../../typings/constants/sessions';
 import {
   DIRECTION,
   TERM_GROUP_RESIZE,
   TERM_GROUP_REQUEST,
   TERM_GROUP_EXIT,
   TERM_GROUP_EXIT_ACTIVE
-} from '../constants/term-groups';
-import {SESSION_REQUEST} from '../constants/sessions';
-import findBySession from '../utils/term-groups';
+} from '../../typings/constants/term-groups';
+import type {ITermState, ITermGroup, HyperState, HyperDispatch, HyperActions} from '../../typings/hyper';
+import rpc from '../rpc';
 import {getRootGroups} from '../selectors';
+import findBySession from '../utils/term-groups';
+
 import {setActiveSession, ptyExitSession, userExitSession} from './sessions';
-import {ITermState, ITermGroup, HyperState, HyperDispatch, HyperActions} from '../hyper';
 
 function requestSplit(direction: 'VERTICAL' | 'HORIZONTAL') {
-  return (activeUid: string) =>
+  return (_activeUid: string | undefined, _profile: string | undefined) =>
     (dispatch: HyperDispatch, getState: () => HyperState): void => {
       dispatch({
         type: SESSION_REQUEST,
         effect: () => {
           const {ui, sessions} = getState();
+          const activeUid = _activeUid ? _activeUid : sessions.activeUid;
+          const profile = _profile ? _profile : activeUid ? sessions.sessions[activeUid].profile : window.profileName;
           rpc.emit('new', {
             splitDirection: direction,
             cwd: ui.cwd,
-            activeUid: activeUid ? activeUid : sessions.activeUid
+            activeUid,
+            profile
           });
         }
       });
@@ -40,17 +44,20 @@ export function resizeTermGroup(uid: string, sizes: number[]): HyperActions {
   };
 }
 
-export function requestTermGroup(activeUid: string) {
+export function requestTermGroup(_activeUid: string | undefined, _profile: string | undefined) {
   return (dispatch: HyperDispatch, getState: () => HyperState) => {
     dispatch({
       type: TERM_GROUP_REQUEST,
       effect: () => {
         const {ui, sessions} = getState();
         const {cwd} = ui;
+        const activeUid = _activeUid ? _activeUid : sessions.activeUid;
+        const profile = _profile ? _profile : activeUid ? sessions.sessions[activeUid].profile : window.profileName;
         rpc.emit('new', {
           isNewGroup: true,
           cwd,
-          activeUid: activeUid ? activeUid : sessions.activeUid
+          activeUid,
+          profile
         });
       }
     });

@@ -1,4 +1,6 @@
-import {app, Menu, BrowserWindow} from 'electron';
+import {app, Menu} from 'electron';
+import type {BrowserWindow} from 'electron';
+
 import {openConfig, getConfig} from './config';
 import {updatePlugins} from './plugins';
 import {installCLI} from './utils/cli-install';
@@ -141,6 +143,22 @@ const commands: Record<string, (focusedWindow?: BrowserWindow) => void> = {
   const index = cmdIndex === 'last' ? cmdIndex : cmdIndex - 1;
   commands[`tab:jump:${cmdIndex}`] = (focusedWindow) => {
     focusedWindow?.rpc.emit('move jump req', index);
+  };
+});
+
+//Profile specific commands
+getConfig().profiles.forEach((profile) => {
+  commands[`window:new:${profile.name}`] = () => {
+    setTimeout(() => app.createWindow(undefined, undefined, profile.name), 0);
+  };
+  commands[`tab:new:${profile.name}`] = (focusedWindow) => {
+    focusedWindow?.rpc.emit('termgroup add req', {profile: profile.name});
+  };
+  commands[`pane:splitRight:${profile.name}`] = (focusedWindow) => {
+    focusedWindow?.rpc.emit('split request vertical', {profile: profile.name});
+  };
+  commands[`pane:splitDown:${profile.name}`] = (focusedWindow) => {
+    focusedWindow?.rpc.emit('split request horizontal', {profile: profile.name});
   };
 });
 

@@ -7,10 +7,6 @@ require('normalize-url');
 require('parse-url');
 require('php-escape-shell');
 require('plist');
-require('react-deep-force-update');
-require('react-dom');
-require('react-redux');
-require('react');
 require('redux-thunk');
 require('redux');
 require('reselect');
@@ -22,10 +18,14 @@ if (false) {
   require('args');
   require('mousetrap');
   require('open');
+  require('react-dom');
+  require('react-redux');
+  require('react');
   require('xterm-addon-fit');
-  require('xterm-addon-ligatures');
+  require('xterm-addon-image');
   require('xterm-addon-search');
   require('xterm-addon-web-links');
   require('xterm-addon-webgl');
+  require('xterm-addon-canvas');
   require('xterm');
 }

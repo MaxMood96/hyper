@@ -1,10 +1,9 @@
+import {stat} from 'fs';
+import type {Stats} from 'fs';
+
+import type parseUrl from 'parse-url';
 import {php_escapeshellcmd as escapeShellCmd} from 'php-escape-shell';
-import {isExecutable} from '../utils/file';
-import {getRootGroups} from '../selectors';
-import findBySession from '../utils/term-groups';
-import notify from '../utils/notify';
-import rpc from '../rpc';
-import {requestSession, sendSessionData, setActiveSession} from './sessions';
+
 import {
   UI_FONT_SIZE_SET,
   UI_FONT_SIZE_INCR,
@@ -24,14 +23,18 @@ import {
   UI_OPEN_SSH_URL,
   UI_CONTEXTMENU_OPEN,
   UI_COMMAND_EXEC
-} from '../constants/ui';
+} from '../../typings/constants/ui';
+import type {HyperState, HyperDispatch, HyperActions, ITermGroups} from '../../typings/hyper';
+import rpc from '../rpc';
+import {getRootGroups} from '../selectors';
+import {isExecutable} from '../utils/file';
+import notify from '../utils/notify';
+import findBySession from '../utils/term-groups';
 
+import {requestSession, sendSessionData, setActiveSession} from './sessions';
 import {setActiveGroup} from './term-groups';
-import parseUrl from 'parse-url';
-import {HyperState, HyperDispatch, HyperActions, ITermGroups} from '../hyper';
-import {stat, Stats} from 'fs';
 
-export function openContextMenu(uid: string, selection: any) {
+export function openContextMenu(uid: string, selection: string) {
   return (dispatch: HyperDispatch, getState: () => HyperState) => {
     dispatch({
       type: UI_CONTEXTMENU_OPEN,
@@ -269,11 +272,11 @@ export function openFile(path: string) {
             }
             rpc.once('session add', ({uid}) => {
               rpc.once('session data', () => {
-                dispatch(sendSessionData(uid, command, null));
+                dispatch(sendSessionData(uid, command));
               });
             });
           }
-          dispatch(requestSession());
+          dispatch(requestSession(undefined));
         });
       }
     });
@@ -292,12 +295,11 @@ export function leaveFullScreen(): HyperActions {
   };
 }
 
-export function openSSH(url: string) {
+export function openSSH(parsedUrl: ReturnType<typeof parseUrl>) {
   return (dispatch: HyperDispatch) => {
     dispatch({
       type: UI_OPEN_SSH_URL,
       effect() {
-        const parsedUrl = parseUrl(url, true);
         let command = `${parsedUrl.protocol} ${parsedUrl.user ? `${parsedUrl.user}@` : ''}${parsedUrl.resource}`;
 
         if (parsedUrl.port) command += ` -p ${parsedUrl.port}`;
@@ -306,11 +308,11 @@ export function openSSH(url: string) {
 
         rpc.once('session add', ({uid}) => {
           rpc.once('session data', () => {
-            dispatch(sendSessionData(uid, command, null));
+            dispatch(sendSessionData(uid, command));
           });
         });
 
-        dispatch(requestSession());
+        dispatch(requestSession(undefined));
       }
     });
   };

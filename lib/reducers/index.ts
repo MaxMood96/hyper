@@ -1,8 +1,11 @@
-import {combineReducers, Reducer} from 'redux';
-import ui from './ui';
+import {combineReducers} from 'redux';
+import type {Reducer} from 'redux';
+
+import type {HyperActions, HyperState} from '../../typings/hyper';
+
 import sessions from './sessions';
 import termGroups from './term-groups';
-import {HyperActions, HyperState} from '../hyper';
+import ui from './ui';
 
 export default combineReducers({
   ui,

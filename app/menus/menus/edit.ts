@@ -1,6 +1,6 @@
-import {BrowserWindow, MenuItemConstructorOptions} from 'electron';
+import type {BrowserWindow, MenuItemConstructorOptions} from 'electron';
 
-export default (
+const editMenu = (
   commandKeys: Record<string, string>,
   execCommand: (command: string, focusedWindow?: BrowserWindow) => void
 ) => {
@@ -31,7 +31,8 @@ export default (
     } as any,
     {
       role: 'paste',
-      accelerator: commandKeys['editor:paste']
+      accelerator: commandKeys['editor:paste'],
+      registerAccelerator: true
     },
     {
       label: 'Select All',
@@ -146,3 +147,5 @@ export default (
     submenu
   };
 };
+
+export default editMenu;

@@ -1,7 +1,10 @@
-import {shell} from 'electron';
-import {cfgPath} from './paths';
-import * as Registry from 'native-reg';
 import {exec} from 'child_process';
+
+import {shell} from 'electron';
+
+import * as Registry from 'native-reg';
+
+import {cfgPath} from './paths';
 
 const getUserChoiceKey = () => {
   try {
@@ -57,7 +60,7 @@ const openNotepad = (file: string) =>
     });
   });
 
-export default () => {
+const openConfig = () => {
   // Windows opens .js files with  WScript.exe by default
   // If the user hasn't set up an editor for .js files, we fallback to notepad.
   if (process.platform === 'win32') {
@@ -73,3 +76,5 @@ export default () => {
   }
   return shell.openPath(cfgPath).then((error) => error === '');
 };
+
+export default openConfig;

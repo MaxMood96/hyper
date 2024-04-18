@@ -1,27 +1,36 @@
-import {app, BrowserWindow, shell, Menu, BrowserWindowConstructorOptions, Event} from 'electron';
+import {existsSync} from 'fs';
 import {isAbsolute, normalize, sep} from 'path';
 import {URL, fileURLToPath} from 'url';
-import {v4 as uuidv4} from 'uuid';
-import isDev from 'electron-is-dev';
-import updater from '../updater';
-import toElectronBackgroundColor from '../utils/to-electron-background-color';
-import {icon, homeDirectory} from '../config/paths';
-import createRPC from '../rpc';
-import notify from '../notify';
-import fetchNotifications from '../notifications';
-import Session from '../session';
-import contextMenuTemplate from './contextmenu';
-import {execCommand} from '../commands';
-import {setRendererType, unsetRendererType} from '../utils/renderer-utils';
-import {decorateSessionOptions, decorateSessionClass} from '../plugins';
+
+import {app, BrowserWindow, shell, Menu} from 'electron';
+import type {BrowserWindowConstructorOptions} from 'electron';
+
 import {enable as remoteEnable} from '@electron/remote/main';
-import {configOptions} from '../../lib/config';
+import isDev from 'electron-is-dev';
 import {getWorkingDirectoryFromPID} from 'native-process-working-directory';
+import {v4 as uuidv4} from 'uuid';
+
+import type {sessionExtraOptions} from '../../typings/common';
+import type {configOptions} from '../../typings/config';
+import {execCommand} from '../commands';
+import {getDefaultProfile} from '../config';
+import {icon, homeDirectory} from '../config/paths';
+import fetchNotifications from '../notifications';
+import notify from '../notify';
+import {decorateSessionOptions, decorateSessionClass} from '../plugins';
+import createRPC from '../rpc';
+import Session from '../session';
+import updater from '../updater';
+import {setRendererType, unsetRendererType} from '../utils/renderer-utils';
+import toElectronBackgroundColor from '../utils/to-electron-background-color';
+
+import contextMenuTemplate from './contextmenu';
 
 export function newWindow(
   options_: BrowserWindowConstructorOptions,
   cfg: configOptions,
-  fn?: (win: BrowserWindow) => void
+  fn?: (win: BrowserWindow) => void,
+  profileName: string = getDefaultProfile()
 ): BrowserWindow {
   const classOpts = Object.assign({uid: uuidv4()});
   app.plugins.decorateWindowClass(classOpts);
@@ -47,6 +56,8 @@ export function newWindow(
   };
   const window = new BrowserWindow(app.plugins.getDecoratedBrowserOptions(winOpts));
 
+  window.profileName = profileName;
+
   // Enable remote module on this window
   remoteEnable(window.webContents);
 
@@ -59,28 +70,13 @@ export function newWindow(
   const sessions = new Map<string, Session>();
 
   const updateBackgroundColor = () => {
-    const cfg_ = app.plugins.getDecoratedConfig();
+    const cfg_ = app.plugins.getDecoratedConfig(profileName);
     window.setBackgroundColor(toElectronBackgroundColor(cfg_.backgroundColor || '#000'));
   };
 
-  // set working directory
-  let argPath = process.argv[1];
-  if (argPath && process.platform === 'win32') {
-    if (/[a-zA-Z]:"/.test(argPath)) {
-      argPath = argPath.replace('"', sep);
-    }
-    argPath = normalize(argPath + sep);
-  }
-  let workingDirectory = homeDirectory;
-  if (argPath && isAbsolute(argPath)) {
-    workingDirectory = argPath;
-  } else if (cfg.workingDirectory && isAbsolute(cfg.workingDirectory)) {
-    workingDirectory = cfg.workingDirectory;
-  }
-
   // config changes
   const cfgUnsubscribe = app.config.subscribe(() => {
-    const cfg_ = app.plugins.getDecoratedConfig();
+    const cfg_ = app.plugins.getDecoratedConfig(profileName);
 
     // notify renderer
     window.webContents.send('config change');
@@ -123,22 +119,43 @@ export function newWindow(
     }
   });
 
-  function createSession(extraOptions: any = {}) {
+  function createSession(extraOptions: sessionExtraOptions = {}) {
     const uid = uuidv4();
-    const extraOptionsFiltered: any = {};
+    const extraOptionsFiltered: sessionExtraOptions = {};
     Object.keys(extraOptions).forEach((key) => {
       if (extraOptions[key] !== undefined) extraOptionsFiltered[key] = extraOptions[key];
     });
 
+    const profile = extraOptionsFiltered.profile || profileName;
+    const activeSession = extraOptionsFiltered.activeUid ? sessions.get(extraOptionsFiltered.activeUid) : undefined;
     let cwd = '';
-    if (cfg.preserveCWD === undefined || cfg.preserveCWD) {
-      const activePID = extraOptionsFiltered.activeUid && sessions.get(extraOptionsFiltered.activeUid)?.pty?.pid;
-      try {
-        cwd = activePID && getWorkingDirectoryFromPID(activePID);
-      } catch (error) {
-        console.error(error);
+    if (cfg.preserveCWD !== false && activeSession && activeSession.profile === profile) {
+      const activePID = activeSession.pty?.pid;
+      if (activePID !== undefined) {
+        try {
+          cwd = getWorkingDirectoryFromPID(activePID) || '';
+        } catch (error) {
+          console.error(error);
+        }
       }
-      cwd = cwd && isAbsolute(cwd) ? cwd : '';
+      cwd = cwd && isAbsolute(cwd) && existsSync(cwd) ? cwd : '';
+    }
+
+    const profileCfg = app.plugins.getDecoratedConfig(profile);
+
+    // set working directory
+    let argPath = process.argv[1];
+    if (argPath && process.platform === 'win32') {
+      if (/[a-zA-Z]:"/.test(argPath)) {
+        argPath = argPath.replace('"', sep);
+      }
+      argPath = normalize(argPath + sep);
+    }
+    let workingDirectory = homeDirectory;
+    if (argPath && isAbsolute(argPath)) {
+      workingDirectory = argPath;
+    } else if (profileCfg.workingDirectory && isAbsolute(profileCfg.workingDirectory)) {
+      workingDirectory = profileCfg.workingDirectory;
     }
 
     // remove the rows and cols, the wrong value of them will break layout when init create
@@ -146,11 +163,14 @@ export function newWindow(
       {
         cwd: cwd || workingDirectory,
         splitDirection: undefined,
-        shell: cfg.shell,
-        shellArgs: cfg.shellArgs && Array.from(cfg.shellArgs)
+        shell: profileCfg.shell,
+        shellArgs: profileCfg.shellArgs && Array.from(profileCfg.shellArgs)
       },
       extraOptionsFiltered,
-      {uid}
+      {
+        profile: extraOptionsFiltered.profile || profileName,
+        uid
+      }
     );
     const options = decorateSessionOptions(defaultOptions);
     const DecoratedSession = decorateSessionClass(Session);
@@ -170,7 +190,8 @@ export function newWindow(
       splitDirection: options.splitDirection,
       shell: session.shell,
       pid: session.pty ? session.pty.pid : null,
-      activeUid: options.activeUid
+      activeUid: options.activeUid ?? undefined,
+      profile: options.profile
     });
 
     session.on('data', (data: string) => {
@@ -205,8 +226,8 @@ export function newWindow(
       session.resize({cols, rows});
     }
   });
-  rpc.on('data', ({uid, data, escaped}: {uid: string; data: string; escaped: boolean}) => {
-    const session = sessions.get(uid);
+  rpc.on('data', ({uid, data, escaped}) => {
+    const session = uid && sessions.get(uid);
     if (session) {
       if (escaped) {
         const escapedData = session.shell?.endsWith('cmd.exe')
@@ -236,11 +257,12 @@ export function newWindow(
   // Same deal as above, grabbing the window titlebar when the window
   // is maximized on Windows results in unmaximize, without hitting any
   // app buttons
-  for (const ev of ['maximize', 'unmaximize', 'minimize', 'restore'] as any) {
-    window.on(ev, () => {
-      rpc.emit('windowGeometry change', {isMaximized: window.isMaximized()});
-    });
-  }
+  const onGeometryChange = () => rpc.emit('windowGeometry change', {isMaximized: window.isMaximized()});
+  window.on('maximize', onGeometryChange);
+  window.on('unmaximize', onGeometryChange);
+  window.on('minimize', onGeometryChange);
+  window.on('restore', onGeometryChange);
+
   window.on('move', () => {
     const position = window.getPosition();
     rpc.emit('move', {bounds: {x: position[0], y: position[1]}});
@@ -254,10 +276,10 @@ export function newWindow(
   });
   // pass on the full screen events from the window to react
   rpc.win.on('enter-full-screen', () => {
-    rpc.emit('enter full screen', {});
+    rpc.emit('enter full screen');
   });
   rpc.win.on('leave-full-screen', () => {
-    rpc.emit('leave full screen', {});
+    rpc.emit('leave full screen');
   });
   const deleteSessions = () => {
     sessions.forEach((session, key) => {
@@ -275,22 +297,33 @@ export function newWindow(
     }
   });
 
-  const handleDrop = (event: Event, url: string) => {
+  const handleDroppedURL = (url: string) => {
     const protocol = typeof url === 'string' && new URL(url).protocol;
     if (protocol === 'file:') {
-      event.preventDefault();
       const path = fileURLToPath(url);
-      rpc.emit('session data send', {data: path, escaped: true});
+      return {uid: null, data: path, escaped: true};
     } else if (protocol === 'http:' || protocol === 'https:') {
-      event.preventDefault();
-      rpc.emit('session data send', {data: url});
+      return {uid: null, data: url};
     }
   };
 
   // If file is dropped onto the terminal window, navigate and new-window events are prevented
-  // and his path is added to active session.
-  window.webContents.on('will-navigate', handleDrop);
-  window.webContents.on('new-window', handleDrop);
+  // and it's path is added to active session.
+  window.webContents.on('will-navigate', (event, url) => {
+    const data = handleDroppedURL(url);
+    if (data) {
+      event.preventDefault();
+      rpc.emit('session data send', data);
+    }
+  });
+  window.webContents.setWindowOpenHandler(({url}) => {
+    const data = handleDroppedURL(url);
+    if (data) {
+      rpc.emit('session data send', data);
+      return {action: 'deny'};
+    }
+    return {action: 'allow'};
+  });
 
   // expose internals to extension authors
   window.rpc = rpc;

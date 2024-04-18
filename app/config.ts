@@ -1,11 +1,14 @@
+import {app} from 'electron';
+
 import chokidar from 'chokidar';
-import notify from './notify';
+
+import type {parsedConfig, configOptions} from '../typings/config';
+
 import {_import, getDefaultConfig} from './config/import';
 import _openConfig from './config/open';
 import {cfgPath, cfgDir} from './config/paths';
+import notify from './notify';
 import {getColorMap} from './utils/colors';
-import {parsedConfig, configOptions} from '../lib/config';
-import {app} from 'electron';
 
 const watchers: Function[] = [];
 let cfg: parsedConfig = {} as any;
@@ -78,8 +81,30 @@ export const getConfigDir = () => {
   return cfgDir;
 };
 
+export const getDefaultProfile = () => {
+  return cfg.config.defaultProfile || cfg.config.profiles[0]?.name || 'default';
+};
+
+// get config for the default profile, keeping it for backward compatibility
 export const getConfig = () => {
-  return cfg.config;
+  return getProfileConfig(getDefaultProfile());
+};
+
+export const getProfiles = () => {
+  return cfg.config.profiles;
+};
+
+export const getProfileConfig = (profileName: string): configOptions => {
+  const {profiles, defaultProfile, ...baseConfig} = cfg.config;
+  const profileConfig = profiles.find((p) => p.name === profileName)?.config || {};
+  for (const key in profileConfig) {
+    if (typeof baseConfig[key] === 'object' && !Array.isArray(baseConfig[key])) {
+      baseConfig[key] = {...baseConfig[key], ...profileConfig[key]};
+    } else {
+      baseConfig[key] = profileConfig[key];
+    }
+  }
+  return {...baseConfig, defaultProfile, profiles};
 };
 
 export const openConfig = () => {

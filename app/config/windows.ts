@@ -1,5 +1,6 @@
+import type {BrowserWindow} from 'electron';
+
 import Config from 'electron-store';
-import {BrowserWindow} from 'electron';
 
 export const defaults = {
   windowPosition: [50, 50] as [number, number],

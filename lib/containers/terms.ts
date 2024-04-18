@@ -1,5 +1,4 @@
-import Terms from '../components/terms';
-import {connect} from '../utils/plugins';
+import type {HyperState, HyperDispatch} from '../../typings/hyper';
 import {
   resizeSession,
   sendSessionData,
@@ -8,10 +7,10 @@ import {
   openSearch,
   closeSearch
 } from '../actions/sessions';
-
 import {openContextMenu} from '../actions/ui';
+import Terms from '../components/terms';
 import {getRootGroups} from '../selectors';
-import {HyperState, HyperDispatch} from '../hyper';
+import {connect} from '../utils/plugins';
 
 const mapStateToProps = (state: HyperState) => {
   const {sessions} = state.sessions;
@@ -53,13 +52,15 @@ const mapStateToProps = (state: HyperState) => {
     webLinksActivationKey: state.ui.webLinksActivationKey,
     macOptionSelectionMode: state.ui.macOptionSelectionMode,
     disableLigatures: state.ui.disableLigatures,
-    screenReaderMode: state.ui.screenReaderMode
+    screenReaderMode: state.ui.screenReaderMode,
+    windowsPty: state.ui.windowsPty,
+    imageSupport: state.ui.imageSupport
   };
 };
 
 const mapDispatchToProps = (dispatch: HyperDispatch) => {
   return {
-    onData(uid: string, data: any) {
+    onData(uid: string, data: string) {
       dispatch(sendSessionData(uid, data));
     },
 
@@ -83,7 +84,7 @@ const mapDispatchToProps = (dispatch: HyperDispatch) => {
       dispatch(closeSearch(uid));
     },
 
-    onContextMenu(uid: string, selection: any) {
+    onContextMenu(uid: string, selection: string) {
       dispatch(setActiveSession(uid));
       dispatch(openContextMenu(uid, selection));
     }

@@ -1,10 +1,13 @@
 import React from 'react';
+
 import {connect} from 'react-redux';
-import {decorate, getTermProps, getTermGroupProps} from '../utils/plugins';
+
+import type {HyperState, HyperDispatch, TermGroupProps, TermGroupOwnProps} from '../../typings/hyper';
 import {resizeTermGroup} from '../actions/term-groups';
-import Term_ from './term';
+import {decorate, getTermProps, getTermGroupProps} from '../utils/plugins';
+
 import SplitPane_ from './split-pane';
-import {HyperState, HyperDispatch, TermGroupProps, TermGroupOwnProps} from '../hyper';
+import Term_ from './term';
 
 const Term = decorate(Term_, 'Term');
 const SplitPane = decorate(SplitPane_, 'SplitPane');
@@ -82,7 +85,6 @@ class TermGroup_ extends React.PureComponent<TermGroupProps> {
       letterSpacing: this.props.letterSpacing,
       modifierKeys: this.props.modifierKeys,
       padding: this.props.padding,
-      url: session.url,
       cleared: session.cleared,
       search: session.search,
       cols: session.cols,
@@ -106,6 +108,8 @@ class TermGroup_ extends React.PureComponent<TermGroupProps> {
       macOptionSelectionMode: this.props.macOptionSelectionMode,
       disableLigatures: this.props.disableLigatures,
       screenReaderMode: this.props.screenReaderMode,
+      windowsPty: this.props.windowsPty,
+      imageSupport: this.props.imageSupport,
       uid
     });
 

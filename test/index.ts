@@ -1,10 +1,11 @@
 // Native
 import path from 'path';
-import fs from 'fs-extra';
 
 // Packages
 import test from 'ava';
-import {_electron, ElectronApplication} from 'playwright';
+import fs from 'fs-extra';
+import {_electron} from 'playwright';
+import type {ElectronApplication} from 'playwright';
 
 let app: ElectronApplication;
 
@@ -50,5 +51,5 @@ test.after(async () => {
 });
 
 test('see if dev tools are open', async (t) => {
-  t.false(await app.evaluate(({webContents}) => webContents.getFocusedWebContents().isDevToolsOpened()));
+  t.false(await app.evaluate(({webContents}) => !!webContents.getFocusedWebContents()?.isDevToolsOpened()));
 });

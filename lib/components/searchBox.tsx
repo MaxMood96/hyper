@@ -1,80 +1,237 @@
-import React from 'react';
-import {SearchBoxProps} from '../hyper';
+import React, {useCallback, useRef, useEffect, forwardRef} from 'react';
 
-const searchBoxStyling: React.CSSProperties = {
-  float: 'right',
-  height: '28px',
-  backgroundColor: 'white',
-  position: 'absolute',
-  right: '10px',
-  top: '0px',
-  width: '224px',
-  zIndex: 9999
+import {VscArrowDown} from '@react-icons/all-files/vsc/VscArrowDown';
+import {VscArrowUp} from '@react-icons/all-files/vsc/VscArrowUp';
+import {VscCaseSensitive} from '@react-icons/all-files/vsc/VscCaseSensitive';
+import {VscClose} from '@react-icons/all-files/vsc/VscClose';
+import {VscRegex} from '@react-icons/all-files/vsc/VscRegex';
+import {VscWholeWord} from '@react-icons/all-files/vsc/VscWholeWord';
+import clsx from 'clsx';
+
+import type {SearchBoxProps} from '../../typings/hyper';
+
+type SearchButtonColors = {
+  foregroundColor: string;
+  selectionColor: string;
+  backgroundColor: string;
 };
 
-const enterKey = 13;
+type SearchButtonProps = React.PropsWithChildren<
+  {
+    onClick: () => void;
+    active: boolean;
+    title: string;
+  } & SearchButtonColors
+>;
 
-export default class SearchBox extends React.PureComponent<SearchBoxProps> {
-  searchTerm: string;
-  constructor(props: SearchBoxProps) {
-    super(props);
-    this.searchTerm = '';
-  }
+const SearchButton = ({
+  onClick,
+  active,
+  title,
+  foregroundColor,
+  backgroundColor,
+  selectionColor,
+  children
+}: SearchButtonProps) => {
+  const handleKeyUp = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        onClick();
+      }
+    },
+    [onClick]
+  );
 
-  handleChange = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    this.searchTerm = event.currentTarget.value;
-    if (event.keyCode === enterKey) {
-      this.props.search(event.currentTarget.value);
-    }
+  return (
+    <div
+      onClick={onClick}
+      className={clsx('search-button', {'search-button-active': active})}
+      tabIndex={0}
+      onKeyUp={handleKeyUp}
+      title={title}
+    >
+      {children}
+      <style jsx>
+        {`
+          .search-button {
+            cursor: pointer;
+            color: ${foregroundColor};
+            padding: 2px;
+            margin: 4px 0px;
+            height: 18px;
+            width: 18px;
+            border-radius: 2px;
+          }
+
+          .search-button:focus {
+            outline: ${selectionColor} solid 2px;
+          }
+
+          .search-button:hover {
+            background-color: ${backgroundColor};
+          }
+
+          .search-button-active {
+            background-color: ${selectionColor};
+          }
+
+          .search-button-active:hover {
+            background-color: ${selectionColor};
+          }
+        `}
+      </style>
+    </div>
+  );
+};
+
+const SearchBox = forwardRef<HTMLDivElement, SearchBoxProps>((props, ref) => {
+  const {
+    caseSensitive,
+    wholeWord,
+    regex,
+    results,
+    toggleCaseSensitive,
+    toggleWholeWord,
+    toggleRegex,
+    next,
+    prev,
+    close,
+    backgroundColor,
+    foregroundColor,
+    borderColor,
+    selectionColor,
+    font
+  } = props;
+
+  const searchTermRef = useRef<string>('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleChange = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      searchTermRef.current = event.currentTarget.value;
+      if (event.shiftKey && event.key === 'Enter') {
+        prev(searchTermRef.current);
+      } else if (event.key === 'Enter') {
+        next(searchTermRef.current);
+      }
+    },
+    [prev, next]
+  );
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [inputRef.current]);
+
+  const searchButtonColors: SearchButtonColors = {
+    backgroundColor: borderColor,
+    selectionColor,
+    foregroundColor
   };
 
-  render() {
-    return (
-      <div style={searchBoxStyling}>
-        <input type="text" className="search-box" onKeyUp={this.handleChange} ref={(input) => input?.focus()} />
-        <svg className="search-button" onClick={() => this.props.prev(this.searchTerm)}>
-          <use xlinkHref="./renderer/assets/search-icons.svg#left-arrow" />
-        </svg>
-        <svg className="search-button" onClick={() => this.props.next(this.searchTerm)}>
-          <use xlinkHref="./renderer/assets/search-icons.svg#right-arrow" />
-        </svg>
-        <svg className="search-button" onClick={() => this.props.close()}>
-          <use xlinkHref="./renderer/assets/search-icons.svg#cancel" />
-        </svg>
-        <style jsx>
-          {`
-            .search-box {
-              font-size: 18px;
-              padding: 3px 6px;
-              width: 152px;
-              border: none;
-              float: left;
-            }
+  return (
+    <div className="flex-row search-container" ref={ref}>
+      <div className="flex-row search-box">
+        <input className="search-input" type="text" onKeyDown={handleChange} ref={inputRef} placeholder="Search" />
 
-            .search-box:focus {
-              outline: none;
-            }
+        <SearchButton onClick={toggleCaseSensitive} active={caseSensitive} title="Match Case" {...searchButtonColors}>
+          <VscCaseSensitive size="14px" />
+        </SearchButton>
 
-            .search-button {
-              background-color: #ffffff;
-              color: black;
-              padding: 7px 5.5px;
-              text-align: center;
-              text-decoration: none;
-              display: inline-block;
-              font-size: 16px;
-              transition-duration: 0.4s;
-              cursor: pointer;
-              height: 27px;
-              width: 24px;
-              float: left;
-            }
-            .search-button:hover {
-              background-color: #e7e7e7;
-            }
-          `}
-        </style>
+        <SearchButton onClick={toggleWholeWord} active={wholeWord} title="Match Whole Word" {...searchButtonColors}>
+          <VscWholeWord size="14px" />
+        </SearchButton>
+
+        <SearchButton onClick={toggleRegex} active={regex} title="Use Regular Expression" {...searchButtonColors}>
+          <VscRegex size="14px" />
+        </SearchButton>
       </div>
-    );
-  }
-}
+
+      <span style={{minWidth: '60px', marginLeft: '4px'}}>
+        {results === undefined
+          ? ''
+          : results.resultCount === 0
+            ? 'No results'
+            : `${results.resultIndex + 1} of ${results.resultCount}`}
+      </span>
+
+      <div className="flex-row">
+        <SearchButton
+          onClick={() => prev(searchTermRef.current)}
+          active={false}
+          title="Previous Match"
+          {...searchButtonColors}
+        >
+          <VscArrowUp size="14px" />
+        </SearchButton>
+
+        <SearchButton
+          onClick={() => next(searchTermRef.current)}
+          active={false}
+          title="Next Match"
+          {...searchButtonColors}
+        >
+          <VscArrowDown size="14px" />
+        </SearchButton>
+
+        <SearchButton onClick={close} active={false} title="Close" {...searchButtonColors}>
+          <VscClose size="14px" />
+        </SearchButton>
+      </div>
+
+      <style jsx>
+        {`
+          .search-container {
+            background-color: ${backgroundColor};
+            border: 1px solid ${borderColor};
+            border-radius: 2px;
+            position: absolute;
+            right: 13px;
+            top: 4px;
+            z-index: 10;
+            padding: 4px;
+            font-family: ${font};
+            font-size: 12px;
+          }
+
+          .search-input {
+            outline: none;
+            background-color: transparent;
+            border: none;
+            color: ${foregroundColor};
+            align-self: stretch;
+            width: 100px;
+          }
+
+          .flex-row {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            gap: 4px;
+          }
+
+          .search-box {
+            border: none;
+            border-radius: 2px;
+            outline: ${borderColor} solid 1px;
+            background-color: ${backgroundColor};
+            color: ${foregroundColor};
+            padding: 0px 4px;
+          }
+
+          .search-input::placeholder {
+            color: ${foregroundColor};
+          }
+
+          .search-box:focus-within {
+            outline: ${selectionColor} solid 2px;
+          }
+        `}
+      </style>
+    </div>
+  );
+});
+
+SearchBox.displayName = 'SearchBox';
+
+export default SearchBox;

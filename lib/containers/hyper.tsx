@@ -1,149 +1,142 @@
-import React from 'react';
-import Mousetrap, {MousetrapInstance} from 'mousetrap';
+import React, {forwardRef, useEffect, useRef} from 'react';
 
-import {connect} from '../utils/plugins';
-import * as uiActions from '../actions/ui';
-import {getRegisteredKeys, getCommandHandler, shouldPreventDefault} from '../command-registry';
+import Mousetrap from 'mousetrap';
+import type {MousetrapInstance} from 'mousetrap';
 import stylis from 'stylis';
 
+import type {HyperState, HyperProps, HyperDispatch} from '../../typings/hyper';
+import * as uiActions from '../actions/ui';
+import {getRegisteredKeys, getCommandHandler, shouldPreventDefault} from '../command-registry';
+import type Terms from '../components/terms';
+import {connect} from '../utils/plugins';
+
 import {HeaderContainer} from './header';
-import TermsContainer from './terms';
 import NotificationsContainer from './notifications';
-import {HyperState, HyperProps, HyperDispatch} from '../hyper';
-import Terms from '../components/terms';
+import TermsContainer from './terms';
 
 const isMac = /Mac/.test(navigator.userAgent);
 
-class Hyper extends React.PureComponent<HyperProps> {
-  mousetrap!: MousetrapInstance;
-  terms!: Terms;
-  constructor(props: HyperProps) {
-    super(props);
-  }
+const Hyper = forwardRef<HTMLDivElement, HyperProps>((props, ref) => {
+  const mousetrap = useRef<MousetrapInstance | null>(null);
+  const terms = useRef<Terms | null>(null);
 
-  componentDidUpdate(prev: HyperProps) {
-    if (this.props.backgroundColor !== prev.backgroundColor) {
-      // this can be removed when `setBackgroundColor` in electron
-      // starts working again
-      document.body.style.backgroundColor = this.props.backgroundColor;
-    }
-    const {lastConfigUpdate} = this.props;
-    if (lastConfigUpdate && lastConfigUpdate !== prev.lastConfigUpdate) {
-      this.attachKeyListeners();
-    }
-    if (prev.activeSession !== this.props.activeSession) {
-      this.handleFocusActive(this.props.activeSession!);
-    }
-  }
+  useEffect(() => {
+    void attachKeyListeners();
+  }, [props.lastConfigUpdate]);
+  useEffect(() => {
+    handleFocusActive(props.activeSession);
+  }, [props.activeSession]);
 
-  handleFocusActive = (uid?: string) => {
-    const term = uid && this.terms.getTermByUid(uid);
+  const handleFocusActive = (uid?: string | null) => {
+    const term = uid && terms.current?.getTermByUid(uid);
     if (term) {
       term.focus();
     }
   };
 
-  handleSelectAll = () => {
-    const term = this.terms.getActiveTerm();
+  const handleSelectAll = () => {
+    const term = terms.current?.getActiveTerm();
     if (term) {
       term.selectAll();
     }
   };
 
-  attachKeyListeners() {
-    if (!this.mousetrap) {
+  const attachKeyListeners = async () => {
+    if (!mousetrap.current) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      this.mousetrap = new (Mousetrap as any)(window, true);
-      this.mousetrap.stopCallback = () => {
+      mousetrap.current = new (Mousetrap as any)(window, true);
+      mousetrap.current!.stopCallback = () => {
         // All events should be intercepted even if focus is in an input/textarea
         return false;
       };
     } else {
-      this.mousetrap.reset();
+      mousetrap.current.reset();
     }
 
-    const keys = getRegisteredKeys();
+    const keys = await getRegisteredKeys();
     Object.keys(keys).forEach((commandKeys) => {
-      this.mousetrap.bind(
+      mousetrap.current?.bind(
         commandKeys,
         (e) => {
           const command = keys[commandKeys];
-          // We should tell to xterm that it should ignore this event.
+          // We should tell xterm to ignore this event.
           (e as any).catched = true;
-          this.props.execCommand(command, getCommandHandler(command), e);
+          props.execCommand(command, getCommandHandler(command), e);
           shouldPreventDefault(command) && e.preventDefault();
         },
         'keydown'
       );
     });
-  }
+  };
 
-  componentDidMount() {
-    this.attachKeyListeners();
-    window.rpc.on('term selectAll', this.handleSelectAll);
-  }
+  useEffect(() => {
+    void attachKeyListeners();
+    window.rpc.on('term selectAll', handleSelectAll);
+  }, []);
 
-  onTermsRef = (terms: Terms) => {
-    this.terms = terms;
+  const onTermsRef = (_terms: Terms | null) => {
+    terms.current = _terms;
     window.focusActiveTerm = (uid?: string) => {
       if (uid) {
-        this.handleFocusActive(uid);
+        handleFocusActive(uid);
       } else {
-        this.terms.getActiveTerm().focus();
+        terms.current?.getActiveTerm()?.focus();
       }
     };
   };
 
-  componentWillUnmount() {
-    document.body.style.backgroundColor = 'inherit';
-    this.mousetrap?.reset();
-  }
+  useEffect(() => {
+    return () => {
+      mousetrap.current?.reset();
+    };
+  }, []);
 
-  render() {
-    const {isMac: isMac_, customCSS, uiFontFamily, borderColor, maximized, fullScreen} = this.props;
-    const borderWidth = isMac_ ? '' : `${maximized ? '0' : '1'}px`;
-    stylis.set({prefix: false});
-    return (
-      <div id="hyper">
-        <div
-          style={{fontFamily: uiFontFamily, borderColor, borderWidth}}
-          className={`hyper_main ${isMac_ && 'hyper_mainRounded'} ${fullScreen ? 'fullScreen' : ''}`}
-        >
-          <HeaderContainer />
-          <TermsContainer ref_={this.onTermsRef} />
-          {this.props.customInnerChildren}
-        </div>
-
-        <NotificationsContainer />
-
-        {this.props.customChildren}
-
-        <style jsx>
-          {`
-            .hyper_main {
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              bottom: 0;
-              border: 1px solid #333;
-            }
-
-            .hyper_mainRounded {
-              border-radius: 5px;
-            }
-          `}
-        </style>
-
-        {/*
-          Add custom CSS to Hyper.
-          We add a scope to the customCSS so that it can get around the weighting applied by styled-jsx
-        */}
-        <style dangerouslySetInnerHTML={{__html: stylis('#hyper', customCSS)}} />
+  const {isMac: isMac_, customCSS, uiFontFamily, borderColor, maximized, fullScreen} = props;
+  const borderWidth = isMac_ ? '' : `${maximized ? '0' : '1'}px`;
+  stylis.set({prefix: false});
+  return (
+    <div id="hyper" ref={ref}>
+      <div
+        style={{fontFamily: uiFontFamily, borderColor, borderWidth}}
+        className={`hyper_main ${isMac_ && 'hyper_mainRounded'} ${fullScreen ? 'fullScreen' : ''}`}
+      >
+        <HeaderContainer />
+        <TermsContainer ref_={onTermsRef} />
+        {props.customInnerChildren}
       </div>
-    );
-  }
-}
+
+      <NotificationsContainer />
+
+      {props.customChildren}
+
+      <style jsx>
+        {`
+          .hyper_main {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 1px solid #333;
+          }
+
+          .hyper_mainRounded {
+            border-radius: 10.5px;
+            overflow: hidden;
+          }
+        `}
+      </style>
+
+      {/*
+        Add custom CSS to Hyper.
+        We add a scope to the customCSS so that it can get around the weighting applied by styled-jsx
+      */}
+      <style dangerouslySetInnerHTML={{__html: stylis('#hyper', customCSS)}} />
+    </div>
+  );
+});
+
+Hyper.displayName = 'Hyper';
 
 const mapStateToProps = (state: HyperState) => {
   return {

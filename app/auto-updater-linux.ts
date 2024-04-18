@@ -1,5 +1,6 @@
-import fetch from 'electron-fetch';
 import {EventEmitter} from 'events';
+
+import fetch from 'electron-fetch';
 
 class AutoUpdater extends EventEmitter implements Electron.AutoUpdater {
   updateURL!: string;
@@ -26,13 +27,12 @@ class AutoUpdater extends EventEmitter implements Electron.AutoUpdater {
           this.emit('update-not-available');
           return;
         }
-        return res.json().then(({name, notes, pub_date}) => {
+        return res.json().then(({name, notes, pub_date}: {name: string; notes: string; pub_date: string}) => {
           // Only name is mandatory, needed to construct release URL.
           if (!name) {
             throw new Error('Malformed server response: release name is missing.');
           }
-          // If `null` is passed to Date constructor, current time will be used. This doesn't work with `undefined`
-          const date = new Date(pub_date || null);
+          const date = pub_date ? new Date(pub_date) : new Date();
           this.emit('update-available', {}, notes, name, date);
         });
       })
@@ -47,4 +47,6 @@ class AutoUpdater extends EventEmitter implements Electron.AutoUpdater {
   }
 }
 
-export default new AutoUpdater();
+const autoUpdaterLinux = new AutoUpdater();
+
+export default autoUpdaterLinux;

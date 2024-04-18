@@ -1,20 +1,23 @@
-import pify from 'pify';
-import fs from 'fs';
+import {existsSync, readlink, symlink} from 'fs';
 import path from 'path';
-import notify from '../notify';
-import {cliScriptPath, cliLinkPath} from '../config/paths';
+import {promisify} from 'util';
+
+import {clipboard, dialog} from 'electron';
+
+import {mkdirpSync} from 'fs-extra';
 import * as Registry from 'native-reg';
 import type {ValueType} from 'native-reg';
 import sudoPrompt from 'sudo-prompt';
-import {clipboard, dialog} from 'electron';
-import {mkdirpSync} from 'fs-extra';
 
-const readlink = pify(fs.readlink);
-const symlink = pify(fs.symlink);
-const sudoExec = pify(sudoPrompt.exec, {multiArgs: true});
+import {cliScriptPath, cliLinkPath} from '../config/paths';
+import notify from '../notify';
+
+const readLink = promisify(readlink);
+const symLink = promisify(symlink);
+const sudoExec = promisify(sudoPrompt.exec);
 
 const checkInstall = () => {
-  return readlink(cliLinkPath)
+  return readLink(cliLinkPath)
     .then((link) => link === cliScriptPath)
     .catch((err) => {
       if (err.code === 'ENOENT') {
@@ -32,14 +35,14 @@ const addSymlink = async (silent: boolean) => {
       return;
     }
     console.log('Linking HyperCLI');
-    if (!fs.existsSync(path.dirname(cliLinkPath))) {
+    if (!existsSync(path.dirname(cliLinkPath))) {
       try {
         mkdirpSync(path.dirname(cliLinkPath));
       } catch (err) {
         throw `Failed to create directory ${path.dirname(cliLinkPath)} - ${err}`;
       }
     }
-    await symlink(cliScriptPath, cliLinkPath);
+    await symLink(cliScriptPath, cliLinkPath);
   } catch (_err) {
     const err = _err as {code: string};
     // 'EINVAL' is returned by readlink,

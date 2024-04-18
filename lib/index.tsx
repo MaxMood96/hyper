@@ -1,24 +1,25 @@
 import './v8-snapshot-util';
 import {webFrame} from 'electron';
-import forceUpdate from 'react-deep-force-update';
-import {Provider} from 'react-redux';
 import React from 'react';
-import {render} from 'react-dom';
 
-import rpc from './rpc';
+import {createRoot} from 'react-dom/client';
+import {Provider} from 'react-redux';
+
+import type {configOptions} from '../typings/config';
+
+import {loadConfig, reloadConfig} from './actions/config';
 import init from './actions/index';
-import * as config from './utils/config';
-import * as plugins from './utils/plugins';
-import {getBase64FileData} from './utils/file';
-import * as uiActions from './actions/ui';
-import * as updaterActions from './actions/updater';
+import {addNotificationMessage} from './actions/notifications';
 import * as sessionActions from './actions/sessions';
 import * as termGroupActions from './actions/term-groups';
-import {addNotificationMessage} from './actions/notifications';
-import {loadConfig, reloadConfig} from './actions/config';
+import * as uiActions from './actions/ui';
+import * as updaterActions from './actions/updater';
 import HyperContainer from './containers/hyper';
+import rpc from './rpc';
 import configureStore from './store/configure-store';
-import {configOptions} from './config';
+import * as config from './utils/config';
+import {getBase64FileData} from './utils/file';
+import * as plugins from './utils/plugins';
 
 // On Linux, the default zoom was somehow changed with Electron 3 (or maybe 2).
 // Setting zoom factor to 1.2 brings back the normal default size
@@ -156,16 +157,16 @@ rpc.on('session search close', () => {
   store_.dispatch(sessionActions.closeSearch());
 });
 
-rpc.on('termgroup add req', ({activeUid}) => {
-  store_.dispatch(termGroupActions.requestTermGroup(activeUid));
+rpc.on('termgroup add req', ({activeUid, profile}) => {
+  store_.dispatch(termGroupActions.requestTermGroup(activeUid, profile));
 });
 
-rpc.on('split request horizontal', ({activeUid}) => {
-  store_.dispatch(termGroupActions.requestHorizontalSplit(activeUid));
+rpc.on('split request horizontal', ({activeUid, profile}) => {
+  store_.dispatch(termGroupActions.requestHorizontalSplit(activeUid, profile));
 });
 
-rpc.on('split request vertical', ({activeUid}) => {
-  store_.dispatch(termGroupActions.requestVerticalSplit(activeUid));
+rpc.on('split request vertical', ({activeUid, profile}) => {
+  store_.dispatch(termGroupActions.requestVerticalSplit(activeUid, profile));
 });
 
 rpc.on('reset fontSize req', () => {
@@ -204,8 +205,8 @@ rpc.on('open file', ({path}) => {
   store_.dispatch(uiActions.openFile(path));
 });
 
-rpc.on('open ssh', (url) => {
-  store_.dispatch(uiActions.openSSH(url));
+rpc.on('open ssh', (parsedUrl) => {
+  store_.dispatch(uiActions.openSSH(parsedUrl));
 });
 
 rpc.on('update available', ({releaseName, releaseNotes, releaseUrl, canInstall}) => {
@@ -232,14 +233,14 @@ rpc.on('leave full screen', () => {
   store_.dispatch(uiActions.leaveFullScreen());
 });
 
-const app = render(
+const root = createRoot(document.getElementById('mount')!);
+
+root.render(
   <Provider store={store_}>
     <HyperContainer />
-  </Provider>,
-  document.getElementById('mount')
+  </Provider>
 );
 
 rpc.on('reload', () => {
   plugins.reload();
-  forceUpdate(app);
 });

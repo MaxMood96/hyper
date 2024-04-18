@@ -1,18 +1,20 @@
 import React from 'react';
-import {decorate, getTermGroupProps} from '../utils/plugins';
+
+import type {TermsProps, HyperDispatch} from '../../typings/hyper';
 import {registerCommandHandlers} from '../command-registry';
-import TermGroup_ from './term-group';
-import StyleSheet_ from './style-sheet';
-import {TermsProps, HyperDispatch} from '../hyper';
-import Term from './term';
 import {ObjectTypedKeys} from '../utils/object';
+import {decorate, getTermGroupProps} from '../utils/plugins';
+
+import StyleSheet_ from './style-sheet';
+import type Term from './term';
+import TermGroup_ from './term-group';
 
 const TermGroup = decorate(TermGroup_, 'TermGroup');
 const StyleSheet = decorate(StyleSheet_, 'StyleSheet');
 
 const isMac = /Mac/.test(navigator.userAgent);
 
-export default class Terms extends React.Component<TermsProps> {
+export default class Terms extends React.Component<React.PropsWithChildren<TermsProps>> {
   terms: Record<string, Term>;
   registerCommands: (cmds: Record<string, (e: any, dispatch: HyperDispatch) => void>) => void;
   constructor(props: TermsProps, context: any) {
@@ -119,6 +121,8 @@ export default class Terms extends React.Component<TermsProps> {
             macOptionSelectionMode: this.props.macOptionSelectionMode,
             disableLigatures: this.props.disableLigatures,
             screenReaderMode: this.props.screenReaderMode,
+            windowsPty: this.props.windowsPty,
+            imageSupport: this.props.imageSupport,
             parentProps: this.props
           });
 

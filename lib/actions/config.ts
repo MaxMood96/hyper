@@ -1,6 +1,6 @@
-import {CONFIG_LOAD, CONFIG_RELOAD} from '../constants/config';
-import {HyperActions} from '../hyper';
-import {configOptions} from '../config';
+import type {configOptions} from '../../typings/config';
+import {CONFIG_LOAD, CONFIG_RELOAD} from '../../typings/constants/config';
+import type {HyperActions} from '../../typings/hyper';
 
 export function loadConfig(config: configOptions): HyperActions {
   return {

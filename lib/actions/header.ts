@@ -1,14 +1,15 @@
-import {CLOSE_TAB, CHANGE_TAB} from '../constants/tabs';
+import {CLOSE_TAB, CHANGE_TAB} from '../../typings/constants/tabs';
 import {
   UI_WINDOW_MAXIMIZE,
   UI_WINDOW_UNMAXIMIZE,
   UI_OPEN_HAMBURGER_MENU,
   UI_WINDOW_MINIMIZE,
   UI_WINDOW_CLOSE
-} from '../constants/ui';
+} from '../../typings/constants/ui';
+import type {HyperDispatch} from '../../typings/hyper';
 import rpc from '../rpc';
+
 import {userExitTermGroup, setActiveGroup} from './term-groups';
-import {HyperDispatch} from '../hyper';
 
 export function closeTab(uid: string) {
   return (dispatch: HyperDispatch) => {
@@ -39,7 +40,7 @@ export function maximize() {
     dispatch({
       type: UI_WINDOW_MAXIMIZE,
       effect() {
-        rpc.emit('maximize', null);
+        rpc.emit('maximize');
       }
     });
   };
@@ -50,7 +51,7 @@ export function unmaximize() {
     dispatch({
       type: UI_WINDOW_UNMAXIMIZE,
       effect() {
-        rpc.emit('unmaximize', null);
+        rpc.emit('unmaximize');
       }
     });
   };
@@ -72,7 +73,7 @@ export function minimize() {
     dispatch({
       type: UI_WINDOW_MINIMIZE,
       effect() {
-        rpc.emit('minimize', null);
+        rpc.emit('minimize');
       }
     });
   };
@@ -83,7 +84,7 @@ export function close() {
     dispatch({
       type: UI_WINDOW_CLOSE,
       effect() {
-        rpc.emit('close', null);
+        rpc.emit('close');
       }
     });
   };

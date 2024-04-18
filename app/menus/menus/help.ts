@@ -1,10 +1,14 @@
 import {release} from 'os';
-import {app, shell, MenuItemConstructorOptions, dialog, clipboard} from 'electron';
+
+import {app, shell, dialog, clipboard} from 'electron';
+import type {MenuItemConstructorOptions} from 'electron';
+
 import {getConfig, getPlugins} from '../../config';
-const {arch, env, platform, versions} = process;
 import {version} from '../../package.json';
 
-export default (commands: Record<string, string>, showAbout: () => void): MenuItemConstructorOptions => {
+const {arch, env, platform, versions} = process;
+
+const helpMenu = (commands: Record<string, string>, showAbout: () => void): MenuItemConstructorOptions => {
   const submenu: MenuItemConstructorOptions[] = [
     {
       label: `${app.name} Website`,
@@ -39,12 +43,12 @@ export default (commands: Record<string, string>, showAbout: () => void): MenuIt
 
 
 ---
-<!-- ~/.hyper.js config -->
+<!-- hyper.json config -->
 - **${app.name} version**: ${env.TERM_PROGRAM_VERSION} "${app.getVersion()}"
 - **OS ARCH VERSION:** ${platform} ${arch} ${release()}
 - **Electron:** ${versions.electron}  **LANG:** ${env.LANG}
 - **SHELL:** ${env.SHELL}   **TERM:** ${env.TERM}
-<details><summary><strong>.hyper.js contents</strong></summary>
+<details><summary><strong>hyper.json contents</strong></summary>
 
 \`\`\`json
 ${JSON.stringify(getConfig(), null, 2)}
@@ -106,3 +110,5 @@ ${JSON.stringify(getPlugins(), null, 2)}
     submenu
   };
 };
+
+export default helpMenu;

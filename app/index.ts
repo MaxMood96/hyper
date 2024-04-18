@@ -1,34 +1,40 @@
+// eslint-disable-next-line import/order
+import {cfgPath} from './config/paths';
+
 // Print diagnostic information for a few arguments instead of running Hyper.
 if (['--help', '-v', '--version'].includes(process.argv[1])) {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const {version} = require('./package');
-  const configLocation = process.platform === 'win32' ? `${process.env.userprofile}\\.hyper.js` : '~/.hyper.js';
   console.log(`Hyper version ${version}`);
   console.log('Hyper does not accept any command line arguments. Please modify the config file instead.');
-  console.log(`Hyper configuration file located at: ${configLocation}`);
+  console.log(`Hyper configuration file located at: ${cfgPath}`);
   process.exit();
 }
 
 // Enable remote module
+// eslint-disable-next-line import/order
 import {initialize as remoteInitialize} from '@electron/remote/main';
 remoteInitialize();
+
+// set up config
+// eslint-disable-next-line import/order
+import * as config from './config';
+config.setup();
 
 // Native
 import {resolve} from 'path';
 
 // Packages
 import {app, BrowserWindow, Menu, screen} from 'electron';
-import {gitDescribe} from 'git-describe';
+
 import isDev from 'electron-is-dev';
-import * as config from './config';
+import {gitDescribe} from 'git-describe';
+import parseUrl from 'parse-url';
 
-// set up config
-config.setup();
-
-import * as plugins from './plugins';
-import {installCLI} from './utils/cli-install';
 import * as AppMenu from './menus/menu';
+import * as plugins from './plugins';
 import {newWindow} from './ui/window';
+import {installCLI} from './utils/cli-install';
 import * as windowUtils from './utils/window-utils';
 
 const windowSet = new Set<BrowserWindow>([]);
@@ -56,7 +62,7 @@ if (isDev) {
   console.log('running in dev mode');
 
   // Override default appVersion which is set from package.json
-  gitDescribe({customArguments: ['--tags']}, (error: any, gitInfo: any) => {
+  gitDescribe({customArguments: ['--tags']}, (error: any, gitInfo: {raw: string}) => {
     if (!error) {
       app.setVersion(gitInfo.raw);
     }
@@ -72,15 +78,13 @@ async function installDevExtensions(isDev_: boolean) {
   if (!isDev_) {
     return [];
   }
-  const installer = await import('electron-devtools-installer');
+  const {default: installer, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} = await import('electron-devtools-installer');
 
-  const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS'] as const;
+  const extensions = [REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS];
   const forceDownload = Boolean(process.env.UPGRADE_EXTENSIONS);
 
   return Promise.all(
-    extensions.map((name) =>
-      installer.default(installer[name], {forceDownload, loadExtensionOptions: {allowFileAccess: true}})
-    )
+    extensions.map((extension) => installer(extension, {forceDownload, loadExtensionOptions: {allowFileAccess: true}}))
   );
 }
 
@@ -90,9 +94,10 @@ app.on('ready', () =>
     .then(() => {
       function createWindow(
         fn?: (win: BrowserWindow) => void,
-        options: {size?: [number, number]; position?: [number, number]} = {}
+        options: {size?: [number, number]; position?: [number, number]} = {},
+        profileName: string = config.getDefaultProfile()
       ) {
-        const cfg = plugins.getDecoratedConfig();
+        const cfg = plugins.getDecoratedConfig(profileName);
 
         const winSet = config.getWin();
         let [startX, startY] = winSet.position;
@@ -134,7 +139,7 @@ app.on('ready', () =>
           [startX, startY] = config.windowDefaults.windowPosition;
         }
 
-        const hwin = newWindow({width, height, x: startX, y: startY}, cfg, fn);
+        const hwin = newWindow({width, height, x: startX, y: startY}, cfg, fn, profileName);
         windowSet.add(hwin);
         void hwin.loadURL(url);
 
@@ -233,6 +238,6 @@ app.on('open-file', (_event, path) => {
 
 app.on('open-url', (_event, sshUrl) => {
   GetWindow((win: BrowserWindow) => {
-    win.rpc.emit('open ssh', sshUrl);
+    win.rpc.emit('open ssh', parseUrl(sshUrl));
   });
 });

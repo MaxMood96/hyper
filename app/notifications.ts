@@ -1,7 +1,9 @@
-import ms from 'ms';
+import type {BrowserWindow} from 'electron';
+
 import fetch from 'electron-fetch';
+import ms from 'ms';
+
 import {version} from './package.json';
-import {BrowserWindow} from 'electron';
 
 const NEWS_URL = 'https://hyper-news.now.sh';
 
@@ -22,7 +24,7 @@ export default function fetchNotifications(win: BrowserWindow) {
   })
     .then((res) => res.json())
     .then((data) => {
-      const {message} = data || {};
+      const message: {text: string; url: string; dismissable: boolean} | '' = data.message || '';
       if (typeof message !== 'object' && message !== '') {
         throw new Error('Bad response');
       }
